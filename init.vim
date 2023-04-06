@@ -1,8 +1,4 @@
 set number
-set clipboard=unnamedplus
-set completeopt=noinsert,menuone,noselect
-set title
-set wildmenu
 set showbreak=↳\                " Pretty line break
 set noruler
 set splitright
@@ -13,7 +9,6 @@ set noruler                     " I already have my statusbar
 set autoindent
 set tabstop=4
 set shiftwidth=4
-set smarttab
 set softtabstop=4
 set wrap                        " wrap visually
 set linebreak                   " don't cut my words on wrap
@@ -23,18 +18,16 @@ set infercase                   " smart case inferring
 set wildmode=list:longest,full
 filetype plugin indent on
 syntax on
-set t_Co=256
+
 call plug#begin("~/.vim/plugged")
 
 Plug 'luochen1990/rainbow'
-Plug 'sheerun/vim-polyglot'
-Plug 'ap/vim-css-color'
-Plug 'plasticboy/vim-markdown'
 Plug 'dracula/vim'
+Plug 'jreybert/vimagit'
+Plug 'tpope/vim-commentary'
 Plug 'scrooloose/nerdtree'
 Plug 'ryanoasis/vim-devicons'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
-Plug 'nvim-lua/completion-nvim'
 Plug 'junegunn/fzf.vim'
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'jacoborus/tender.vim'
@@ -58,11 +51,6 @@ autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isT
 nnoremap <silent> <C-n> :NERDTreeToggle<CR>
 
 nnoremap <C-p> :FZF<CR>
-let g:fzf_action = {
-  \ 'ctrl-t': 'tab split',
-  \ 'ctrl-s': 'split',
-  \ 'ctrl-v': 'vsplit'
-  \}
 
 let g:coc_global_extensions = ['coc-css', 'coc-html', 'coc-json', 'coc-prettier', 'coc-tsserver']
 
@@ -91,35 +79,23 @@ if (has('termguicolors'))
 endif
 let g:material_terminal_italics = 1
 let g:airline_theme = 'material'
-function! Smart_TabComplete()
-  let line = getline('.')                         " current line
-
-  let substr = strpart(line, -1, col('.')+1)      " from the start of the current
-                                                  " line to one character right
-                                                  " of the cursor
-  let substr = matchstr(substr, "[^ \t]*$")       " word till cursor
-  if (strlen(substr)==0)                          " nothing to match on empty string
-    return "\<tab>"
-  endif
-  let has_period = match(substr, '\.') != -1      " position of period, if any
-  let has_slash = match(substr, '\/') != -1       " position of slash, if any
-  if (!has_period && !has_slash)
-    return "\<C-X>\<C-P>"                         " existing text matching
-  elseif ( has_slash )
-    return "\<C-X>\<C-F>"                         " file matching
-  else
-    return "\<C-X>\<C-O>"                         " plugin matching
-  endif
-endfunction
-inoremap <tab> <c-r>=Smart_TabComplete()<CR>
 colorscheme material
 
-" Use <Tab> and <S-Tab> to navigate through popup menu
-inoremap <expr> <Tab>   pumvisible() ? "\<C-n>" : "\<Tab>"
-inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
+function! SuperCleverTab()
+    if strpart(getline('.'), 0, col('.') - 1) =~ '^\s*$'
+        return "\<Tab>"
+    elseif pumvisible()
+        return "\<c-n>"
+    else
+        if &omnifunc != ''
+            return "\<C-X>\<C-O>"
+        elseif &dictionary != ''
+            return "\<C-K>"
+        else
+            return "\<C-N>"
+        endif
+    endif
+endfunction
 
-" Set completeopt to have a better completion experience
-set completeopt=menuone,noinsert,noselect
+inoremap <Tab> <C-R>=SuperCleverTab()<cr>
 
-" Avoid showing message extra message when using completion
-set shortmess+=c
