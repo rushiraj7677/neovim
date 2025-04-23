@@ -91,7 +91,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
@@ -114,9 +114,7 @@ vim.opt.showmode = false
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
 --  See `:help 'clipboard'`
-vim.schedule(function()
-  vim.opt.clipboard = 'unnamedplus'
-end)
+vim.opt.clipboard = 'unnamedplus'
 
 -- Enable break indent
 vim.opt.breakindent = true
@@ -214,6 +212,17 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+-- Save and restore cursor position on file open/close
+vim.api.nvim_create_autocmd('BufReadPost', {
+  callback = function()
+    local mark = vim.api.nvim_buf_get_mark(0, '"') -- Get the last position
+    local lcount = vim.api.nvim_buf_line_count(0) -- Get total lines in the buffer
+    if mark[1] > 0 and mark[1] <= lcount then
+      vim.api.nvim_win_set_cursor(0, mark) -- Restore the cursor position
+    end
+  end,
+})
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -276,6 +285,7 @@ require('lazy').setup({
     },
   },
 
+  -- Other plugins...
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
@@ -289,6 +299,303 @@ require('lazy').setup({
   --
   -- Then, because we use the `opts` key (recommended), the configuration runs
   -- after the plugin has been loaded as `require(MODULE).setup(opts)`.
+
+  {
+    'ThePrimeagen/harpoon',
+    dependencies = { 'nvim-lua/plenary.nvim' }, -- Harpoon depends on plenary.nvim
+    config = function()
+      require('harpoon').setup {
+        -- Optional custom configuration
+        menu = {
+          width = vim.api.nvim_win_get_width(0) - 4,
+        },
+      }
+      vim.keymap.set('n', '<leader>ha', require('harpoon.mark').add_file, { desc = 'Harpoon Add File' })
+      vim.keymap.set('n', '<leader>hh', require('harpoon.ui').toggle_quick_menu, { desc = 'Harpoon Quick Menu' })
+      vim.keymap.set('n', '<leader>h1', function()
+        require('harpoon.ui').nav_file(1)
+      end, { desc = 'Harpoon File 1' })
+      vim.keymap.set('n', '<leader>h2', function()
+        require('harpoon.ui').nav_file(2)
+      end, { desc = 'Harpoon File 2' })
+      vim.keymap.set('n', '<leader>h3', function()
+        require('harpoon.ui').nav_file(3)
+      end, { desc = 'Harpoon File 3' })
+      vim.keymap.set('n', '<leader>h4', function()
+        require('harpoon.ui').nav_file(4)
+      end, { desc = 'Harpoon File 4' })
+    end,
+  },
+
+  -- git-blame.nvim
+  {
+    'f-person/git-blame.nvim',
+    event = 'BufReadPost',
+    config = function()
+      vim.g.gitblame_enabled = 1 -- Enable Git blame by default
+      vim.g.gitblame_message_template = '<summary> • <date> • <author>' -- Customize the blame message
+      vim.g.gitblame_date_format = '%Y-%m-%d %H:%M' -- Customize the date format
+      vim.g.gitblame_highlight_group = 'Comment' -- Highlight the blame text
+      vim.keymap.set('n', '<leader>gb', '<cmd>GitBlameToggle<cr>', { desc = '[G]it [B]lame Toggle' })
+    end,
+  },
+
+  -- UndoTree Configuration
+  {
+    'mbbill/undotree',
+    config = function()
+      -- Enable persistent undo
+      vim.opt.undofile = true -- Save undo history to a file
+      vim.opt.undodir = vim.fn.expand '~/.local/share/nvim/undo' -- Directory for undo files
+
+      -- Extract the undodir path as a string
+      local undodir = vim.opt.undodir:get()[1] -- Get the first element of the table
+
+      -- Create the undo directory if it doesn't exist
+      if not vim.loop.fs_stat(undodir) then
+        vim.fn.mkdir(undodir, 'p')
+      end
+
+      -- Keybinding for UndoTree
+      vim.keymap.set('n', '<leader>u', '<cmd>UndotreeToggle<cr>', { desc = 'Toggle UndoTree' })
+    end,
+  },
+
+  -- General Plugins
+  {
+    'folke/tokyonight.nvim', -- Theme
+    priority = 1000,
+    config = function()
+      vim.cmd [[colorscheme tokyonight]]
+    end,
+  },
+  {
+    'nvim-tree/nvim-web-devicons', -- Icons for UI plugins
+  },
+
+  -- LSP and Autocompletion
+  {
+    'hrsh7th/nvim-cmp', -- Autocompletion
+    dependencies = {
+      'hrsh7th/cmp-nvim-lsp',
+      'hrsh7th/cmp-buffer',
+      'hrsh7th/cmp-path',
+    },
+    config = function()
+      local cmp = require 'cmp'
+      cmp.setup {
+        sources = {
+          { name = 'nvim_lsp' },
+          { name = 'buffer' },
+          { name = 'path' },
+        },
+      }
+    end,
+  },
+
+  {
+    'neovim/nvim-lspconfig',
+    config = function()
+      local lspconfig = require 'lspconfig'
+
+      -- PHP Language Server (Intelephense)
+      lspconfig.intelephense.setup {
+        cmd = { 'intelephense', '--stdio' },
+        filetypes = { 'php' },
+        root_dir = lspconfig.util.root_pattern('composer.json', '.git'),
+        settings = {
+          intelephense = {
+            environment = {
+              phpVersion = '8.4.6', -- Set your PHP version here
+            },
+            stubs = {
+              'apache',
+              'bcmath',
+              'bz2',
+              'calendar',
+              'com_dotnet',
+              'Core',
+              'ctype',
+              'curl',
+              'date',
+              'dba',
+              'dom',
+              'enchant',
+              'exif',
+              'FFI',
+              'fileinfo',
+              'filter',
+              'fpm',
+              'ftp',
+              'gd',
+              'gettext',
+              'gmp',
+              'hash',
+              'iconv',
+              'imap',
+              'intl',
+              'json',
+              'ldap',
+              'libxml',
+              'mbstring',
+              'meta',
+              'mysqli',
+              'oci8',
+              'odbc',
+              'openssl',
+              'pcntl',
+              'pcre',
+              'PDO',
+              'pdo_ibm',
+              'pdo_mysql',
+              'pdo_pgsql',
+              'pdo_sqlite',
+              'pgsql',
+              'Phar',
+              'posix',
+              'pspell',
+              'readline',
+              'Reflection',
+              'session',
+              'shmop',
+              'SimpleXML',
+              'snmp',
+              'soap',
+              'sockets',
+              'sodium',
+              'SPL',
+              'sqlite3',
+              'standard',
+              'superglobals',
+              'sysvmsg',
+              'sysvsem',
+              'sysvshm',
+              'tidy',
+              'tokenizer',
+              'xml',
+              'xmlreader',
+              'xmlrpc',
+              'xmlwriter',
+              'xsl',
+              'Zend OPcache',
+              'zip',
+              'zlib',
+              'laravel', -- Add Laravel stubs
+            },
+          },
+        },
+      }
+    end,
+  },
+  -- Treesitter for Enhanced Syntax Highlighting
+  {
+    'nvim-treesitter/nvim-treesitter',
+    build = ':TSUpdate',
+    config = function()
+      require('nvim-treesitter.configs').setup {
+        ensure_installed = { 'php', 'javascript', 'typescript', 'html', 'css', 'json', 'blade' },
+        highlight = { enable = true },
+        indent = { enable = true },
+      }
+    end,
+  },
+  -- To run Laravel Artisan commands directly from Neovim:
+  {
+    'akinsho/toggleterm.nvim',
+    config = function()
+      require('toggleterm').setup {
+        size = 20,
+        open_mapping = [[<C-\>]],
+        hide_numbers = true,
+        shade_filetypes = {},
+        shade_terminals = true,
+        shading_factor = 2,
+        start_in_insert = true,
+        persist_size = true,
+        direction = 'horizontal',
+      }
+      -- Keymap to open a terminal for Artisan commands
+      vim.keymap.set('n', '<leader>ta', '<cmd>ToggleTerm direction=horizontal cmd="php artisan"<cr>', { desc = 'Open [T]erminal for [A]rtisan' })
+    end,
+  },
+
+  -- Blade Support
+  {
+    'jwalton512/vim-blade', -- Blade syntax highlighting
+    ft = { 'blade', 'php' },
+  },
+  {
+    'mattn/emmet-vim', -- Emmet for faster HTML/Blade editing
+    ft = { 'blade', 'html', 'javascriptreact', 'typescriptreact' },
+    config = function()
+      vim.g.user_emmet_mode = 'a' -- Enable all modes
+    end,
+  },
+
+  -- Formatting Tools
+  {
+    'MunifTanjim/prettier.nvim', -- Prettier integration
+    config = function()
+      require('prettier').setup {
+        bin = 'prettierd', -- Use prettierd for better performance
+        filetypes = {
+          'javascript',
+          'javascriptreact',
+          'typescript',
+          'typescriptreact',
+          'json',
+          'css',
+          'scss',
+          'html',
+          'blade',
+        },
+      }
+    end,
+  },
+  {
+    'mfussenegger/nvim-lint', -- ESLint integration
+    config = function()
+      require('lint').linters_by_ft = {
+        javascript = { 'eslint' },
+        javascriptreact = { 'eslint' },
+        typescript = { 'eslint' },
+        typescriptreact = { 'eslint' },
+      }
+    end,
+  },
+
+  -- File Explorer
+  {
+    'preservim/nerdtree', -- NERDTree file explorer
+    config = function()
+      vim.g.NERDTreeShowHidden = 1 -- Show hidden files
+    end,
+  },
+  -- Blade Syntax Highlighting
+  {
+    'jwalton512/vim-blade',
+    ft = { 'blade', 'php' }, -- Enable for .blade.php files
+    config = function()
+      -- Optional: Add any custom configurations here
+    end,
+  },
+
+  -- Optional: Emmet for Blade Templates
+  {
+    'mattn/emmet-vim',
+    ft = { 'blade', 'html', 'javascriptreact', 'typescriptreact' },
+    config = function()
+      vim.g.user_emmet_mode = 'a' -- Enable all modes (add, edit, etc.)
+    end,
+  },
+
+  {
+    'nvim-telescope/telescope.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    config = function()
+      require('telescope').setup {}
+    end,
+  },
 
   { -- Useful plugin to show you pending keybinds.
     'folke/which-key.nvim',
@@ -485,6 +792,19 @@ require('lazy').setup({
       'saghen/blink.cmp',
     },
     config = function()
+      -- Intelephense Setup
+      require('lspconfig').intelephense.setup {
+        cmd = { 'intelephense', '--stdio' }, -- Ensure "--stdio" is included
+        filetypes = { 'php' },
+        root_dir = require('lspconfig.util').root_pattern('composer.json', '.git'),
+        settings = {
+          intelephense = {
+            environment = {
+              phpVersioN = '8.4.6', -- Set your PHP version here
+            },
+          },
+        },
+      }
       -- Brief aside: **What is LSP?**
       --
       -- LSP is an initialism you've probably heard, but might not understand what it is.
@@ -712,7 +1032,7 @@ require('lazy').setup({
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
-        ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
+        ensure_installed = { 'intelephense' }, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
         automatic_installation = false,
         handlers = {
           function(server_name)
@@ -720,7 +1040,8 @@ require('lazy').setup({
             -- This handles overriding only values explicitly passed
             -- by the server configuration above. Useful when disabling
             -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+            server.capabilities =
+              vim.tbl_deep_extend('force', {}, vim.lsp.protocol.make_client_capabilities(), require('cmp_nvim_lsp').default_capabilities() or {})
             require('lspconfig')[server_name].setup(server)
           end,
         },
@@ -760,6 +1081,8 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        javascript = { 'prettierd' },
+        php = { 'php-cs-fixer' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -767,6 +1090,22 @@ require('lazy').setup({
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
       },
     },
+  },
+
+  -- nvim-neo-tree
+  {
+    'nvim-neo-tree/neo-tree.nvim',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons',
+      'MunifTanjim/nui.nvim',
+    },
+    config = function()
+      require('neo-tree').setup {}
+
+      -- Keybinding to toggle Neo-Tree
+      vim.keymap.set('n', '<leader>e', '<cmd>Neotree toggle<cr>', { desc = '[E]xplore Files' })
+    end,
   },
 
   { -- Autocompletion
