@@ -1095,13 +1095,25 @@ require('lazy').setup({
   -- nvim-neo-tree
   {
     'nvim-neo-tree/neo-tree.nvim',
+    branch = 'v3.x',
     dependencies = {
       'nvim-lua/plenary.nvim',
       'nvim-tree/nvim-web-devicons',
       'MunifTanjim/nui.nvim',
     },
+    lazy = false, -- neo-tree will lazily load itself
+    ---@module "neo-tree"
+    ---@type neotree.Config?
     config = function()
-      require('neo-tree').setup {}
+      require('neo-tree').setup {
+        filesystem = {
+          filtered_items = {
+            visible = true, -- Show hidden files and directories
+            hide_dotfiles = false, -- Ensure dotfiles are not hidden
+            hide_gitignored = false, -- Optionally show files ignored by .gitignore
+          },
+        },
+      }
 
       -- Keybinding to toggle Neo-Tree
       vim.keymap.set('n', '<leader>e', '<cmd>Neotree toggle<cr>', { desc = '[E]xplore Files' })
